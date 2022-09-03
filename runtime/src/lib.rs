@@ -45,6 +45,8 @@ pub use sp_runtime::{Perbill, Permill};
 
 /// Import the template pallet.
 pub use pallet_template;
+// aa20.1，runtime中引入kt。
+pub use pallet_kitties;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -266,6 +268,12 @@ impl pallet_template::Config for Runtime {
 	type Event = Event;
 }
 
+// aa20.2，runtime中引入kt。
+impl pallet_kitties::Config for Runtime {
+	type Event = Event;
+	type Randomness = RandomnessCollectiveFlip;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -283,6 +291,8 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
+		// aa20.3，runtime中引入kt。编译，此时仍报错，是因为kt，librs里没有写 #![cfg_attr(not(feature = "std"), no_std)]，添加后编译成功
+		Kitties: pallet_kitties,
 	}
 );
 
