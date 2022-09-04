@@ -1,7 +1,7 @@
 // aa21,这段代码望填了，填好后编译成功。
 // aa22，心得分享，写pallet很可能困惑，因为用了很多宏，而且event，error等都是由框架定义好的。所以最终形成什么代码逻辑不太清楚。
-// 所以可以用rust工具expand，如在template下运行cargo expand，就可以把宏展开，了解底层代码mmmi
-// aa23,按上个步骤所说，在template 模块下使用cargo expand >expand.rs 生成了expand.rs文件，很难看懂mmmf。
+// 所以可以用rust工具expand，如在template下运行cargo expand，就可以把宏展开，了解底层代码dddi
+// aa23,按上个步骤所说，在template 模块下使用cargo expand >expand.rs 生成了expand.rs文件，很难看懂dddf。
 #![cfg_attr(not(feature = "std"), no_std)]
 // aa2，0355，粘贴进pallet通用骨架代码
 pub use pallet::*;
@@ -41,6 +41,12 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	// aa4,对kitties建立存储，也就是说存储kt时，下个kt的id是多少，一般以0为第一个kt，所以这里有GetDefaultValue
+	// add220904，StorageValue定义如下
+	// pub struct StorageValue<Prefix, Value, QueryKind = OptionQuery, OnEmpty = GetDefault>(
+	// 	core::marker::PhantomData<(Prefix, Value, QueryKind, OnEmpty)>,
+	// );
+	// QueryKind = OptionQuery代表如果没有此参数默认为OptionQuery，查询不到值返回None，这里是ValueQuery，代表如果查询不到值，返回此类型默认值，
+	// 即用最后的参数GetDefaultValue查询。
 	#[pallet::storage]
 	#[pallet::getter(fn next_kitty_id)]
 	pub type NextKittyId<T> = StorageValue<_, KittyIndex, ValueQuery, GetDefaultValue>;
