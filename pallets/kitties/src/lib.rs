@@ -20,11 +20,14 @@ pub mod pallet {
 
 	// aa5，0522，应该不用写这段代码，只是为了展示。
 	#[pallet::type_value]
+	// add220906,虽然这里函数名和StorageValue的范型参数同名，但它们不是同一个东西，cargo expand后pub fn GetDefaultValue()
+	// 实际上是__type_value_for_get_default_value
 	pub fn GetDefaultValue() -> KittyIndex {
 		0_u32
 	}
 
 	// aa6,定义好了id，再定义类型存储kt的数据，为每个kitty生成16个单位长度的u8数组。
+	// add220906,为什么需要derive这么多特征，教程没有说dddf。
 	#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 	pub struct Kitty(pub [u8; 16]);
 
@@ -49,9 +52,18 @@ pub mod pallet {
 	// 即用最后的参数GetDefaultValue查询。
 	#[pallet::storage]
 	#[pallet::getter(fn next_kitty_id)]
+	// add220906，展开后如下
+	// impl<T: Config> Pallet<T> {
+	//     pub fn next_kitty_id() -> KittyIndex {
+	//         <NextKittyId<T> as frame_support::storage::StorageValue<KittyIndex>>::get()
+	//     }
+	// }
 	pub type NextKittyId<T> = StorageValue<_, KittyIndex, ValueQuery, GetDefaultValue>;
 
 	// aa7，0807，定义map来保存aa6中的数据
+	// add220906，虽然右边没有T，但是左边还是需要加上T，因为右边展开后也有T的。如下：
+	// pub type Kitties<T> =
+	//     StorageMap<_GeneratedPrefixForStorageKitties<T>, Blake2_128Concat, KittyIndex, Kitty>;
 	#[pallet::storage]
 	#[pallet::getter(fn kitties)]
 	pub type Kitties<T> = StorageMap<_, Blake2_128Concat, KittyIndex, Kitty>;
