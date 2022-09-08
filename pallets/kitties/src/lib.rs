@@ -157,7 +157,7 @@ pub mod pallet {
 			let mut data = [0u8; 16];
 
 			// add220907,注意，这里用到了位运算，就是把10进制数换成2进制，对应每位做and或or运算得到新的二进制，再把结果转成10进制这样。
-			// kitty_1是pub struct Kitty(pub [u8; 16]);是个元组结构体，且比较特殊，元组里就一个值[u8;16],所以kitty_1.0就是[u8;16]？？？？。
+			// kitty_1是pub struct Kitty(pub [u8; 16]);是个元组结构体，且比较特殊，元组里就一个值[u8;16],所以kitty_1.0就是[u8;16]。
 			for i in 0..kitty_1.0.len() {
 				data[i] = (kitty_1.0[i] & selector[i]) | (kitty_2.0[i] & !selector[i]);
 			}
@@ -181,6 +181,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
+			// add220908,这里主要是在kitty_id没有对应的kt存在时报错。如果能确保一定有对应的，就不用写这段。
 			Self::get_kitty(kitty_id).map_err(|_| Error::<T>::InvalidKittyId)?;
 
 			ensure!(Self::kitty_owner(kitty_id) == Some(who.clone()), Error::<T>::NotOwner);
