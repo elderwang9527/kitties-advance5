@@ -52,6 +52,9 @@ pub mod pallet {
 	// 即用最后的参数GetDefaultValue查询。
 	#[pallet::storage]
 	#[pallet::getter(fn next_kitty_id)]
+	// add220907，这里用到了完全限定语法，<Atype as Atrait>::get(),表明这个get()方法是Atype对Atrait的get方法实现，而不是Atype对Btrait的同名方法实现或Atype本身对同名方法实现。
+	// 这里Atype代表NextKittyId<T>，Atrait代表frame_support::storage::StorageValue<KittyIndex>。
+	// 注意这里是frame_support::storage::StorageValue，是个trait，而frame_support::storage::types::StorageValue是个struct。
 	// add220906，展开后如下
 	// impl<T: Config> Pallet<T> {
 	//     pub fn next_kitty_id() -> KittyIndex {
@@ -64,6 +67,16 @@ pub mod pallet {
 	// add220906，虽然右边没有T，但是左边还是需要加上T，因为右边展开后也有T的。如下：
 	// pub type Kitties<T> =
 	//     StorageMap<_GeneratedPrefixForStorageKitties<T>, Blake2_128Concat, KittyIndex, Kitty>;
+	// add220907,l10.此宏不仅生成了如上pub type Kitties<T>的定义，还生成了如下fn kitties的定义：
+	// impl<T: Config> Pallet<T> {
+	//     pub fn kitties<KArg>(k: KArg) -> Option<Kitty>
+	//     where
+	//         KArg: frame_support::codec::EncodeLike<KittyIndex>,
+	//     {
+	//         <Kitties<T> as frame_support::storage::StorageMap<KittyIndex, Kitty>>::get(k)
+	//     }
+	// }
+	// 总结一下此宏的意思是简化了Kitties<T>的定义，且生成了一个getter(fn kitties)，即针对类型kitties的kitties getter函数，根据KittyIndex，找到Option<Kitty>，dddi
 	#[pallet::storage]
 	#[pallet::getter(fn kitties)]
 	pub type Kitties<T> = StorageMap<_, Blake2_128Concat, KittyIndex, Kitty>;
@@ -92,24 +105,31 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		// aa12，1310，写完辅助方法，看看call里面怎么写方法。第一个方法，创建一个kt。let who * 是做一个check签名？？？？。这是所有对外extrinsic需要做的？？？？
+		// aa12，1310，写完辅助方法，看看call里面怎么写方法。第一个方法，创建一个kt。let who * 是做一个check签名？？？？。这是所有对外extrinsic需要做的？？？？dddf
 		// 因为交易需要自己的签名
 		// get_next_id是创建时看下下一个id是什么，
 		// 1420 Kitties::*，以及后两行都是对链上的操作
 		// 最后抛出event，这此event由deposit_event方法存储ddda，此event后面会定义。
 		#[pallet::weight(10_000)]
 		pub fn create(origin: OriginFor<T>) -> DispatchResult {
+			// add220907，通过这一步后，who就应该确定是交易发送方了。
 			let who = ensure_signed(origin)?;
+			// add220907,以下为map_err解释，具体代码涉及到闭包，以后再了解dddf。
+			// 此方法仅作用于 Result 类型，并允许将失败的值从 E 转换为其他类型的 H，但仅当值为 Err 值时才有效。
+			// map_err 不兼容于 Option 类型，因为使用 None 执行任何操作都是无意义的。
+			// 应用场景应该是如果结果为 OK，则直接使用它的值，不做更多处理。而如果 err 了，不报错，而是返回另一个值时用到这个。
 			let kitty_id = Self::get_next_id().map_err(|_| Error::<T>::InvalidKittyId)?;
 
 			let dna = Self::random_value(&who);
 			let kitty = Kitty(dna);
 
+			// add220907，以下三个实际上都是storagemap或storagevalue。为什么中间必须加T暂时不清楚，但现在记住这些storagemap或storagevalue的固定用法就是了。
 			Kitties::<T>::insert(kitty_id, &kitty);
 			KittyOwner::<T>::insert(kitty_id, &who);
 			NextKittyId::<T>::set(kitty_id + 1);
 
 			Self::deposit_event(Event::KittyCreated(who, kitty_id, kitty));
+			// add220907，因为返回值DispatchResult是个result类型，所以这里返回一个ok。
 			Ok(())
 		}
 
@@ -124,6 +144,7 @@ pub mod pallet {
 			kitty_id_2: KittyIndex,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			// add220907，Used as ensure!(expression_to_ensure, expression_to_return_on_false).
 			ensure!(kitty_id_1 != kitty_id_2, Error::<T>::SameKittyId);
 
 			let kitty_1 = Self::get_kitty(kitty_id_1).map_err(|_| Error::<T>::InvalidKittyId)?;
@@ -135,6 +156,8 @@ pub mod pallet {
 
 			let mut data = [0u8; 16];
 
+			// add220907,注意，这里用到了位运算，就是把10进制数换成2进制，对应每位做and或or运算得到新的二进制，再把结果转成10进制这样。
+			// kitty_1是pub struct Kitty(pub [u8; 16]);是个元组结构体，且比较特殊，元组里就一个值[u8;16],所以kitty_1.0就是[u8;16]？？？？。
 			for i in 0..kitty_1.0.len() {
 				data[i] = (kitty_1.0[i] & selector[i]) | (kitty_2.0[i] & !selector[i]);
 			}
@@ -182,6 +205,13 @@ pub mod pallet {
 
 		// aa10，1133，i2,get accountid和kt数据时，根据值不同映射到一个result里去，看看是会ok或error。
 		// id之前提到过是u32，如果已经到了最大值，再去设置，就会返回error，没到max就返回ok。
+		// add220907，l7，注意以下result定义
+		// enum Result<T, E> {
+		// 	Ok(T),
+		// 	Err(E),
+		// }
+		// 这里只是ok，err调换了顺序，且这里val相当于就是
+		// 注意，这里的val是通配模式，之前有误区，通配模式必须用_，但其实是任意变量名都行，用到_的时候是表示不需要使用它所对应的值,即右侧不会有_
 		fn get_next_id() -> Result<KittyIndex, ()> {
 			match Self::next_kitty_id() {
 				KittyIndex::MAX => Err(()),

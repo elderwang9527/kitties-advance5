@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "node",
-    "pallets/template",
+    # "pallets/template",
     # aa17 引入kt pallet，编译仍报错
     "pallets/kitties",
     "runtime",
