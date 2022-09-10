@@ -43,9 +43,9 @@ use pallet_transaction_payment::CurrencyAdapter;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
+pub use pallet_kitties;
 /// Import the template pallet.
 pub use pallet_template;
-pub use pallet_kitties;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -143,7 +143,7 @@ parameter_types! {
 	pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
 		::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 	pub const SS58Prefix: u8 = 42;
-	pub const KittyReserve: u64 =1_000;
+	pub const KtReserve: u64 =1_000;
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -272,7 +272,7 @@ impl pallet_kitties::Config for Runtime {
 	type Event = Event;
 	type Randomness = RandomnessCollectiveFlip;
 	type KittyIndex = u32;
-	type KittyReserve = KittyReserve;
+	type KtReserve = KtReserve;
 	type Currency = Balances;
 	type MaxLength = ConstU32<64>;
 }

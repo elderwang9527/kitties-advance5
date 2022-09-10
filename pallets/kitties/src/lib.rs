@@ -35,15 +35,19 @@ pub mod pallet {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
 
-		type KittyIndex: Parameter
-			+ Member
-			+ AtLeast32BitUnsigned
-			+ Default
-			+ Copy
-			+ MaxEncodedLen
-			+ Bounded;
+		// 下面这行是说，这个关联类型KittyIndex需要实现下面的很多trait。 这语法是一个trait bound。
+		// 而runtime里的 type KittyIndex = u32;是实际上让此type KittyIndex等于u32这个类型。
+		// 总结就是在pallet里用关联类型先定义好一个类型，此时只有类型约束。最终类型是什么样，要靠runtime里来实现。
 
-		type KittyReserve: Get<BalanceOf<Self>>;
+		type KittyIndex: Copy
+			+ Member
+			+ Default
+			+ MaxEncodedLen
+			+ Bounded
+			+ AtLeast32BitUnsigned
+			+ Parameter;
+
+		type KtReserve: Get<BalanceOf<Self>>;
 
 		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 
@@ -67,8 +71,8 @@ pub mod pallet {
 	pub type KittyOwner<T: Config> = StorageMap<_, Blake2_128Concat, T::KittyIndex, T::AccountId>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn all_owner_kitty)]
-	pub type AllOwnerKitty<T: Config> =
+	#[pallet::getter(fn all_kts_owned)]
+	pub type AllKtsOwned<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<Kitty, T::MaxLength>, ValueQuery>;
 
 	#[pallet::event]
@@ -96,7 +100,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let kitty_id = Self::get_next_id().map_err(|_| Error::<T>::InvalidKittyId)?;
 
-			T::Currency::reserve(&who, T::KittyReserve::get())
+			T::Currency::reserve(&who, T::KtReserve::get())
 				.map_err(|_| Error::<T>::TokenNotEnough)?;
 
 			let dna = Self::random_value(&who);
@@ -106,7 +110,7 @@ pub mod pallet {
 			KittyOwner::<T>::insert(kitty_id, &who);
 			NextKittyId::<T>::put(kitty_id + One::one());
 
-			AllOwnerKitty::<T>::try_mutate(&who, |kitty_vec| kitty_vec.try_push(kitty.clone()))
+			AllKtsOwned::<T>::try_mutate(&who, |kitty_vec| kitty_vec.try_push(kitty.clone()))
 				.map_err(|_| <Error<T>>::ExceedMaxKittyOwned)?;
 
 			Self::deposit_event(Event::KittyCreated(who, kitty_id, kitty));
@@ -121,7 +125,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			T::Currency::reserve(&who, T::KittyReserve::get())
+			T::Currency::reserve(&who, T::KtReserve::get())
 				.map_err(|_| Error::<T>::TokenNotEnough)?;
 
 			ensure!(kitty_id_1 != kitty_id_2, Error::<T>::SameKittyId);
@@ -142,7 +146,7 @@ pub mod pallet {
 			KittyOwner::<T>::insert(kitty_id, &who);
 			NextKittyId::<T>::put(kitty_id + One::one());
 
-			AllOwnerKitty::<T>::try_mutate(&who, |kitty_vec| kitty_vec.try_push(new_kitty.clone()))
+			AllKtsOwned::<T>::try_mutate(&who, |kitty_vec| kitty_vec.try_push(new_kitty.clone()))
 				.map_err(|_| <Error<T>>::ExceedMaxKittyOwned)?;
 
 			Self::deposit_event(Event::KittyCreated(who, kitty_id, new_kitty));
@@ -162,10 +166,10 @@ pub mod pallet {
 
 			ensure!(Self::kitty_owner(kitty_id) == Some(prev_owner.clone()), Error::<T>::NotOwner);
 
-			T::Currency::reserve(&new_owner, T::KittyReserve::get())
+			T::Currency::reserve(&new_owner, T::KtReserve::get())
 				.map_err(|_| Error::<T>::TokenNotEnough)?;
 
-			AllOwnerKitty::<T>::try_mutate(&prev_owner, |owned| {
+			AllKtsOwned::<T>::try_mutate(&prev_owner, |owned| {
 				if let Some(index) = owned.iter().position(|kitty| kitty == &exsit_kitty) {
 					owned.swap_remove(index);
 					return Ok(());
@@ -174,11 +178,11 @@ pub mod pallet {
 			})
 			.map_err(|_| <Error<T>>::NotOwner)?;
 
-			T::Currency::unreserve(&prev_owner, T::KittyReserve::get());
+			T::Currency::unreserve(&prev_owner, T::KtReserve::get());
 
 			<KittyOwner<T>>::insert(kitty_id, &new_owner);
 
-			AllOwnerKitty::<T>::try_mutate(&new_owner, |vec| vec.try_push(exsit_kitty))
+			AllKtsOwned::<T>::try_mutate(&new_owner, |vec| vec.try_push(exsit_kitty))
 				.map_err(|_| <Error<T>>::ExceedMaxKittyOwned)?;
 
 			Self::deposit_event(Event::KittyTransferred(prev_owner, new_owner, kitty_id));
