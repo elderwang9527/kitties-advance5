@@ -53,7 +53,7 @@ impl system::Config for Test {
 	type BlockHashCount = ConstU64<250>;
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = ();
+	type AccountData = pallet_balances::AccountData<Balance>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
