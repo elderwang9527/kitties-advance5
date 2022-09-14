@@ -20,3 +20,7 @@ c1 的做法错误，正确做法是将 type AccountData = () 换为 type Accoun
 ### c4
 
 增加了两个 test，但想先增加 lib 中的 buy 和 sell 方法。再完成 tests。就先提交了
+
+### c5
+
+lib 中增加了 buy 和 sell 方法，dddi。

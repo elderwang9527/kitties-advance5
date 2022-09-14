@@ -11,7 +11,7 @@ mod tests;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
-	use frame_support::traits::{Currency, Randomness, ReservableCurrency};
+	use frame_support::traits::{Currency, ExistenceRequirement, Randomness, ReservableCurrency};
 	use frame_system::pallet_prelude::*;
 	use sp_io::hashing::blake2_128;
 	use sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, One};
@@ -75,12 +75,20 @@ pub mod pallet {
 	pub type AllKtsOwned<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<Kitty, T::MaxLength>, ValueQuery>;
 
+	// 存储正在销售的kittyid 及价格
+	#[pallet::storage]
+	#[pallet::getter(fn kitties_list_for_sales)]
+	pub type KittiesShop<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::KittyIndex, Option<BalanceOf<T>>, ValueQuery>;
+
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		KittyCreated(T::AccountId, T::KittyIndex, Kitty),
 		KittyBred(T::AccountId, T::KittyIndex, Kitty),
 		KittyTransferred(T::AccountId, T::AccountId, T::KittyIndex),
+		KittyInSell(T::AccountId, T::KittyIndex, Option<BalanceOf<T>>),
 	}
 
 	#[pallet::error]
@@ -91,6 +99,9 @@ pub mod pallet {
 		KittiesCountOverflow,
 		TokenNotEnough,
 		ExceedMaxKittyOwned,
+		NoBuySelf,
+		NotForSale,
+		NotEnoughBalance,
 	}
 
 	#[pallet::call]
@@ -188,6 +199,53 @@ pub mod pallet {
 			Self::deposit_event(Event::KittyTransferred(prev_owner, new_owner, kitty_id));
 
 			Ok(())
+		}
+
+
+		#[pallet::weight(1_000)]
+		pub fn sell(
+			origin: OriginFor<T>,
+			kitty_id: T::KittyIndex,
+			price: Option<BalanceOf<T>>,
+		) -> DispatchResultWithPostInfo {
+			let seller = ensure_signed(origin)?;
+			// 验证操作者是否为拥有者
+			ensure!(Self::kitty_owner(kitty_id) == Some(seller.clone()), Error::<T>::NotOwner);
+			// 给kitty设定价格，并保存关联有关系
+			KittiesShop::<T>::mutate_exists(kitty_id, |p| *p = Some(price));
+
+			Self::deposit_event(Event::KittyInSell(seller, kitty_id, price));
+			Ok(().into())
+		}
+
+		#[pallet::weight(1_000)]
+		pub fn buy(origin: OriginFor<T>, kitty_id: T::KittyIndex) -> DispatchResultWithPostInfo {
+			let buyer = ensure_signed(origin)?;
+			// 根据ID获取kitty所有者
+			let seller = KittyOwner::<T>::get(kitty_id).ok_or(Error::<T>::InvalidKittyId)?;
+			// 验证购买者是否为拥有者
+			ensure!(Some(buyer.clone()) != Some(seller.clone()), Error::<T>::NoBuySelf);
+			// 获取kitty价格
+			let price = KittiesShop::<T>::get(kitty_id).ok_or(Error::<T>::NotForSale)?;
+			// 获取买家账户余额
+			let buyer_balance = T::Currency::free_balance(&buyer);
+			// 获取需要质押的金额配置
+			let stake_amount = T::KtReserve::get();
+			// 检查买家的余额是否足够用于购买和质押
+			ensure!(buyer_balance > (price + stake_amount), Error::<T>::NotEnoughBalance);
+			// 获取要质押的数量
+			let stake_amount = T::KtReserve::get();
+			// 买家质押指定的资产数量
+			T::Currency::reserve(&buyer, stake_amount).map_err(|_| Error::<T>::NotEnoughBalance)?;
+			// 卖家解除质押数量
+			T::Currency::unreserve(&seller, stake_amount);
+			// 买家支付相应价格的token数给卖家
+			T::Currency::transfer(&buyer, &seller, price, ExistenceRequirement::KeepAlive)?;
+			// 更新kitty所有者
+			KittyOwner::<T>::insert(kitty_id, buyer.clone());
+			// 通告事件
+			Self::deposit_event(Event::KittyTransferred(seller, buyer, kitty_id));
+			Ok(().into())
 		}
 	}
 
