@@ -6,10 +6,31 @@ fn it_works_for_create() {
 	new_test_ext().execute_with(|| {
 		// Dispatch a signed extrinsic.
 		System::set_block_number(1);
-
 		assert_ok!(KittiesModule::create(Origin::signed(1)));
 		assert_eq!(KittiesModule::next_kitty_id(), 1);
-
 		assert_noop!(KittiesModule::transfer(Origin::signed(2), 0, 1), Error::<Test>::NotOwner);
+	});
+}
+
+#[test]
+fn create_failed_token_not_enough() {
+	new_test_ext().execute_with(|| {
+		// Dispatch a signed extrinsic.
+		System::set_block_number(1);
+		assert_ok!(KittiesModule::create(Origin::signed(11)));
+		assert_eq!(KittiesModule::next_kitty_id(), 1);
+		assert_noop!(KittiesModule::transfer(Origin::signed(2), 0, 1), Error::<Test>::NotOwner);
+	});
+}
+
+#[test]
+fn transfer_success() {
+	new_test_ext().execute_with(|| {
+		// Dispatch a signed extrinsic.
+		System::set_block_number(1);
+		KittiesModule::create(Origin::signed(1));
+		assert_ok!(KittiesModule::transfer(Origin::signed(1), 0, 2));
+		// assert_eq!(KittiesModule::next_kitty_id(), 1);
+		// assert_noop!(KittiesModule::transfer(Origin::signed(2), 0, 1), Error::<Test>::NotOwner);
 	});
 }

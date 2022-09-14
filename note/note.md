@@ -16,3 +16,7 @@ c1 的做法错误，正确做法是将 type AccountData = () 换为 type Accoun
 ### c3
 
 解开 lib 中的 tests 标签后会报错，显示余额不足，参考别人的代码，在 fn new_test_ext()中设置添加余额的字段后则编译成功。部分内容不理解 dddf。
+
+### c4
+
+增加了两个 test，但想先增加 lib 中的 buy 和 sell 方法。再完成 tests。就先提交了
