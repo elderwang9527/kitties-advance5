@@ -24,3 +24,12 @@ c1 的做法错误，正确做法是将 type AccountData = () 换为 type Accoun
 ### c5
 
 lib 中增加了 buy 和 sell 方法，dddi。
+
+## 220915
+
+### c6
+
+增加了 tests
+
+assert_ok 表示括号里返回是 ok，assert_eq 表示括号里左右值一样，assert_noop 表示括号左侧返回是 err，且具体 err 值跟右侧一样。  
+想写完所有 tests 就把 lib 里每个 Error::\<T>::ErrorName 对应的 ErrorName 写一个带#[test]标签的 fn。

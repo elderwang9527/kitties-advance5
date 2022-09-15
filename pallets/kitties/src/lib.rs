@@ -101,7 +101,6 @@ pub mod pallet {
 		ExceedMaxKittyOwned,
 		NoBuySelf,
 		NotForSale,
-		NotEnoughBalance,
 	}
 
 	#[pallet::call]
@@ -232,11 +231,11 @@ pub mod pallet {
 			// 获取需要质押的金额配置
 			let stake_amount = T::KtReserve::get();
 			// 检查买家的余额是否足够用于购买和质押
-			ensure!(buyer_balance > (price + stake_amount), Error::<T>::NotEnoughBalance);
+			ensure!(buyer_balance > (price + stake_amount), Error::<T>::TokenNotEnough);
 			// 获取要质押的数量
 			let stake_amount = T::KtReserve::get();
 			// 买家质押指定的资产数量
-			T::Currency::reserve(&buyer, stake_amount).map_err(|_| Error::<T>::NotEnoughBalance)?;
+			T::Currency::reserve(&buyer, stake_amount).map_err(|_| Error::<T>::TokenNotEnough)?;
 			// 卖家解除质押数量
 			T::Currency::unreserve(&seller, stake_amount);
 			// 买家支付相应价格的token数给卖家
